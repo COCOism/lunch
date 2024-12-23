@@ -21,7 +21,7 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
             total_nutrition["熱量"] += nutrient["calories"] * weight / 100
             total_nutrition["蛋白質"] += nutrient["protein"] * weight / 100
             total_nutrition["脂肪"] += nutrient["fat"] * weight / 100
-            total_nutrition["碳水化合合物"] += nutrient["carbs"] * weight / 100
+            total_nutrition["碳水化合物"] += nutrient["carbs"] * weight / 100
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
 # 計算菜單

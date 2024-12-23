@@ -31,7 +31,7 @@ def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
 
     # 確保熱量按比例分配
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
-    category_ratios = {"主菜": 0.5, "配菜": 0.3, "湯": 0.2}
+    category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
     
     menu_summary = []
@@ -51,11 +51,11 @@ def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
         portions = min(portions, total_people)
 
         # 總食材需求
-        total_ingredients = {ing: weight * portions for ing, weight in recipe["ingredients"].items()}
+        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in recipe["ingredients"].items()}
 
         # 總營養數據
         total_nutrition = {
-            key: value * portions for key, value in recipe_nutrition.items()
+            key: round(value * portions, 1) for key, value in recipe_nutrition.items()
         }
 
         menu_summary.append({
@@ -101,16 +101,19 @@ def main():
     st.subheader("生成的菜單")
     if st.button("生成菜單"):
         menu = calculate_menu(recipes, group_counts, lunch_calories, nutrition_data)
-        for item in menu:
-            st.write(f"### {item['name']} ({item['type']})")
-            st.write(f"熱量: {round(item['calories'], 1)} kcal")
-            st.write(f"份量: {item['portions']} 人份")
-            st.write("營養成分：")
-            for key, value in item["nutrition"].items():
-                st.write(f"- {key}: {value}")
-            st.write("所需食材：")
-            for ing, weight in item["ingredients"].items():
-                st.write(f"- {ing}: {round(weight, 1)} 克")
+        for category in ["主食", "主菜", "副菜", "湯品"]:
+            st.write(f"## {category}")
+            for item in menu:
+                if item["type"] == category:
+                    st.write(f"### {item['name']} ({item['type']})")
+                    st.write(f"熱量: {round(item['calories'], 1)} kcal")
+                    st.write(f"份量: {item['portions']} 人份")
+                    st.write("營養成分：")
+                    for key, value in item["nutrition"].items():
+                        st.write(f"- {key}: {value}")
+                    st.write("所需食材：")
+                    for ing, weight in item["ingredients"].items():
+                        st.write(f"- {ing}: {weight} 克")
 
 if __name__ == "__main__":
     main()

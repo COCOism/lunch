@@ -58,11 +58,15 @@ def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
     
     return menu_summary
 
-# 構建營養成分和食材數量表格
+# 構建營養成分和分列食材數量表格
 def build_nutrition_table_with_ingredients(menu):
+    # 提取所有食材
+    all_ingredients = set()
+    for item in menu:
+        all_ingredients.update(item["ingredients"].keys())
+
     rows = []
     for item in menu:
-        ingredients = "; ".join([f"{ing}: {weight} 克" for ing, weight in item["ingredients"].items()])
         row = {
             "菜品": item["name"],
             "類型": item["type"],
@@ -70,24 +74,31 @@ def build_nutrition_table_with_ingredients(menu):
             "蛋白質 (g)": item["nutrition"]["蛋白質"],
             "脂肪 (g)": item["nutrition"]["脂肪"],
             "碳水化合物 (g)": item["nutrition"]["碳水化合物"],
-            "食材": ingredients
         }
+        # 將每個食材作為單獨的欄位
+        for ingredient in all_ingredients:
+            row[ingredient] = f"{item['ingredients'].get(ingredient, 0)} 克" if ingredient in item["ingredients"] else "——"
         rows.append(row)
+    
+    # 添加總計行
     total_nutrition = {
         "熱量 (kcal)": sum(row["熱量 (kcal)"] for row in rows),
         "蛋白質 (g)": sum(row["蛋白質 (g)"] for row in rows),
         "脂肪 (g)": sum(row["脂肪 (g)"] for row in rows),
         "碳水化合物 (g)": sum(row["碳水化合物 (g)"] for row in rows),
     }
-    rows.append({
+    total_row = {
         "菜品": "總計",
         "類型": "全部",
         "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
         "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
         "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
         "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
-        "食材": "——"
-    })
+    }
+    for ingredient in all_ingredients:
+        total_row[ingredient] = "——"  # 總計行無需列出食材數量
+    rows.append(total_row)
+
     return pd.DataFrame(rows)
 
 # 主應用

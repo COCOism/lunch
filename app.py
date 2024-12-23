@@ -25,13 +25,26 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
 
 # 計算菜單
 def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
+    # 計算總熱量需求
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
+    
+    # 定義熱量分配比例
+    category_ratios = {"主菜": 0.5, "配菜": 0.3, "湯": 0.2}
+    category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
+    
     menu_summary = []
-
+    
+    # 按比例計算每道菜的份量
     for recipe in recipes:
-        # 根據所需總熱量計算份量
+        category = recipe["type"]
+        if category not in category_calories:
+            continue  # 如果菜的類型不在分配比例中，跳過
+
+        # 計算該道菜需要的份量
         recipe_nutrition = calculate_recipe_nutrition(recipe["ingredients"], nutrition_data)
-        portions = total_calories_needed // recipe_nutrition["calories"]
+        if recipe_nutrition["calories"] == 0:  # 避免除以零
+            continue
+        portions = category_calories[category] // recipe_nutrition["calories"]
 
         # 總食材需求
         total_ingredients = {ing: weight * portions for ing, weight in recipe["ingredients"].items()}
@@ -49,6 +62,7 @@ def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
             "portions": portions,
             "ingredients": total_ingredients
         })
+    
     return menu_summary
 
 # 主應用
@@ -79,10 +93,10 @@ def main():
     lunch_ratio = 0.4
     lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
 
-    # 菜單生成
+    # 動態更新菜單
+    st.subheader("生成的菜單")
     if st.button("生成菜單"):
         menu = calculate_menu(recipes, group_counts, lunch_calories, nutrition_data)
-        st.subheader("生成的菜單")
         for item in menu:
             st.write(f"### {item['name']} ({item['type']})")
             st.write(f"熱量: {item['calories']} kcal")

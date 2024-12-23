@@ -92,7 +92,7 @@
     "文蛤": {"calories": 36.9374, "protein": 7.6105, "fat": 0.4923, "carbs": 2.7132},
     "雞蛋(白殼)": {"calories": 138.9603, "protein": 12.8837, "fat": 9.1782, "carbs": 1.2752},
     "鴨鹹蛋平均值": {"calories": 184.6259, "protein": 13.3108, "fat": 14.1293, "carbs": 1.0546},
-    "冬瓜糖磚": {"calories": 360.254, "protein": , "fat": , "carbs": 93.0889},
+    "冬瓜糖磚": {"calories": 360.254, "protein": 0, "fat": 0, "carbs": 93.0889},
     "咖哩粉": {"calories": 416.7524, "protein": 13.89, "fat": 14.13, "carbs": 58.5056},
     "咖哩塊": {"calories": 514.8127, "protein": 5.626, "fat": 34.5255, "carbs": 45.3948},
     "油蔥酥": {"calories": 517.6856, "protein": 7.44, "fat": 28.82, "carbs": 57.1364},

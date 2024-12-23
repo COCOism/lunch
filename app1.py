@@ -25,39 +25,47 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
             total_nutrition["碳水化合物"] += nutrient["carbs"] * weight / 100
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
-# 計算菜單
+# 計算菜單（1 主食、1 主菜、1 副菜、1 湯品）
 def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
-    random.shuffle(recipes)  # 隨機打亂菜品順序
     total_people = sum(group_counts.values())
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
-    
+
+    # 按類型分類菜品
+    categorized_recipes = {category: [] for category in category_ratios.keys()}
+    for recipe in recipes:
+        if recipe["type"] in categorized_recipes:
+            categorized_recipes[recipe["type"]].append(recipe)
+
     menu_summary = []
 
-    for recipe in recipes:
-        category = recipe["type"]
-        if category not in category_calories:
-            continue
+    for category, ratio in category_ratios.items():
+        # 隨機選擇 1 個菜品
+        available_recipes = categorized_recipes.get(category, [])
+        if not available_recipes:
+            continue  # 如果該類型沒有菜品可選，跳過
+        selected_recipe = random.choice(available_recipes)
 
-        recipe_nutrition = calculate_recipe_nutrition(recipe["ingredients"], nutrition_data)
+        # 計算該菜品的營養成分和食材數量
+        recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
         if recipe_nutrition["熱量"] == 0:
             continue
         portions = round(category_calories[category] / recipe_nutrition["熱量"], 1)
         portions = min(portions, total_people)
 
-        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in recipe["ingredients"].items()}
+        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
         total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
 
         menu_summary.append({
-            "name": recipe["name"],
-            "type": recipe["type"],
+            "name": selected_recipe["name"],
+            "type": selected_recipe["type"],
             "calories": total_nutrition["熱量"],
             "nutrition": total_nutrition,
             "portions": portions,
             "ingredients": total_ingredients
         })
-    
+
     return menu_summary
 
 # 構建營養成分和分列食材數量表格
@@ -129,15 +137,10 @@ def main():
     lunch_ratio = 0.4
     lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
 
-    if "menu" not in st.session_state:
-        st.session_state["menu"] = None
-
     if st.button("生成菜單"):
         st.session_state["menu"] = calculate_menu(recipes, group_counts, lunch_calories, nutrition_data)
-        st.session_state["menu_id"] = random.randint(1000, 9999)
 
-    if st.session_state["menu"]:
-        st.write(f"本次菜單編號：{st.session_state['menu_id']}")
+    if st.session_state.get("menu"):
         nutrition_table = build_nutrition_table_with_ingredients(st.session_state["menu"])
         st.subheader("全餐營養成分與食材數量表（含總計）")
         st.dataframe(nutrition_table)

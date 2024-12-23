@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import json
 
 # 加載菜譜數據
@@ -69,6 +70,36 @@ def calculate_menu(recipes, group_counts, lunch_calories, nutrition_data):
     
     return menu_summary
 
+# 構建營養成分表格
+def build_nutrition_table(menu):
+    rows = []
+    for item in menu:
+        row = {
+            "菜品": item["name"],
+            "類型": item["type"],
+            "熱量 (kcal)": item["nutrition"]["熱量"],
+            "蛋白質 (g)": item["nutrition"]["蛋白質"],
+            "脂肪 (g)": item["nutrition"]["脂肪"],
+            "碳水化合物 (g)": item["nutrition"]["碳水化合物"],
+        }
+        rows.append(row)
+    # 添加總營養行
+    total_nutrition = {
+        "熱量 (kcal)": sum(row["熱量 (kcal)"] for row in rows),
+        "蛋白質 (g)": sum(row["蛋白質 (g)"] for row in rows),
+        "脂肪 (g)": sum(row["脂肪 (g)"] for row in rows),
+        "碳水化合物 (g)": sum(row["碳水化合物 (g)"] for row in rows),
+    }
+    rows.append({
+        "菜品": "總計",
+        "類型": "全部",
+        "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
+        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
+        "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
+        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
+    })
+    return pd.DataFrame(rows)
+
 # 主應用
 def main():
     st.title("午餐菜單生成器")
@@ -98,22 +129,11 @@ def main():
     lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
 
     # 動態更新菜單
-    st.subheader("生成的菜單")
     if st.button("生成菜單"):
         menu = calculate_menu(recipes, group_counts, lunch_calories, nutrition_data)
-        for category in ["主食", "主菜", "副菜", "湯品"]:
-            st.write(f"## {category}")
-            for item in menu:
-                if item["type"] == category:
-                    st.write(f"### {item['name']} ({item['type']})")
-                    st.write(f"熱量: {round(item['calories'], 1)} kcal")
-                    st.write(f"份量: {item['portions']} 人份")
-                    st.write("營養成分：")
-                    for key, value in item["nutrition"].items():
-                        st.write(f"- {key}: {value}")
-                    st.write("所需食材：")
-                    for ing, weight in item["ingredients"].items():
-                        st.write(f"- {ing}: {weight} 克")
+        nutrition_table = build_nutrition_table(menu)
+        st.subheader("全餐營養成分表")
+        st.dataframe(nutrition_table)
 
 if __name__ == "__main__":
     main()

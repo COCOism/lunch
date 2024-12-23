@@ -66,6 +66,8 @@ def build_nutrition_table_with_ingredients(menu):
         all_ingredients.update(item["ingredients"].keys())
 
     rows = []
+    ingredient_totals = {ingredient: 0 for ingredient in all_ingredients}  # 初始化食材總計
+
     for item in menu:
         row = {
             "菜品": item["name"],
@@ -77,7 +79,9 @@ def build_nutrition_table_with_ingredients(menu):
         }
         # 將每個食材作為單獨的欄位
         for ingredient in all_ingredients:
-            row[ingredient] = f"{item['ingredients'].get(ingredient, 0)} 克" if ingredient in item["ingredients"] else "——"
+            amount = item["ingredients"].get(ingredient, 0)
+            row[ingredient] = f"{amount} 克" if amount > 0 else "——"
+            ingredient_totals[ingredient] += amount  # 累加總計
         rows.append(row)
     
     # 添加總計行
@@ -95,10 +99,11 @@ def build_nutrition_table_with_ingredients(menu):
         "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
         "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
     }
-    for ingredient in all_ingredients:
-        total_row[ingredient] = "——"  # 總計行無需列出食材數量
-    rows.append(total_row)
+    # 在總計行中添加食材總量
+    for ingredient, total_amount in ingredient_totals.items():
+        total_row[ingredient] = f"{round(total_amount, 1)} 克" if total_amount > 0 else "——"
 
+    rows.append(total_row)
     return pd.DataFrame(rows)
 
 # 主應用
@@ -129,7 +134,7 @@ def main():
     if st.button("生成菜單"):
         menu = calculate_menu(recipes, group_counts, lunch_calories, nutrition_data)
         nutrition_table = build_nutrition_table_with_ingredients(menu)
-        st.subheader("全餐營養成分與食材數量表")
+        st.subheader("全餐營養成分與食材數量表（含總計）")
         st.dataframe(nutrition_table)
 
 if __name__ == "__main__":

@@ -3,8 +3,6 @@ import pandas as pd
 import json
 import random
 
-# 定義輔助函數
-
 # 加載菜品數據
 def load_recipes():
     try:
@@ -35,7 +33,7 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
             total_nutrition["碳水化合物 (g)"] += nutrient["carbs"] * weight / 100
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
-# 計算單天的菜單
+# 計算單天菜單
 def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes):
     total_people = sum(group_counts.values())
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
@@ -76,7 +74,7 @@ def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data
 
     return menu_summary
 
-# 生成 5 天的菜單
+# 生成 5 天菜單
 def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data):
     weekly_menu = {}
     used_recipes = []
@@ -85,9 +83,16 @@ def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data):
         weekly_menu[f"Day {day}"] = daily_menu
     return weekly_menu
 
-# 構建菜單表格
+# 構建菜單表格，包含營養成分加總和食材總量
 def build_nutrition_table_with_ingredients(menu):
-    rows = []
+    all_ingredients = set()  # 收集所有食材
+    for item in menu:
+        all_ingredients.update(item["ingredients"].keys())
+
+    rows = []  # 每道菜的數據
+    ingredient_totals = {ingredient: 0 for ingredient in all_ingredients}  # 初始化每種食材的總量
+
+    # 填充每道菜的營養成分和食材
     for item in menu:
         row = {
             "菜品": item["name"],
@@ -97,8 +102,35 @@ def build_nutrition_table_with_ingredients(menu):
             "脂肪 (g)": item["nutrition"]["脂肪 (g)"],
             "碳水化合物 (g)": item["nutrition"]["碳水化合物 (g)"],
         }
+        for ingredient in all_ingredients:
+            amount = item["ingredients"].get(ingredient, 0)
+            row[ingredient] = f"{amount} 克" if amount > 0 else "——"
+            ingredient_totals[ingredient] += amount
         rows.append(row)
-    return pd.DataFrame(rows)
+
+    # 營養總計
+    total_nutrition = {
+        "熱量 (kcal)": sum(row["熱量 (kcal)"] for row in rows),
+        "蛋白質 (g)": sum(row["蛋白質 (g)"] for row in rows),
+        "脂肪 (g)": sum(row["脂肪 (g)"] for row in rows),
+        "碳水化合物 (g)": sum(row["碳水化合物 (g)"] for row in rows),
+    }
+
+    # 添加總計行
+    total_row = {
+        "菜品": "總計",
+        "類型": "全部",
+        "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
+        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
+        "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
+        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
+    }
+    for ingredient, total_amount in ingredient_totals.items():
+        total_row[ingredient] = f"{round(total_amount, 1)} 克" if total_amount > 0 else "——"
+
+    rows.append(total_row)  # 添加總計行到表格中
+
+    return pd.DataFrame(rows)  # 返回表格作為 DataFrame
 
 # 主程式
 def main():

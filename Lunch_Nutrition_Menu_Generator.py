@@ -44,8 +44,11 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
 
 # 計算單天菜單
 def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes):
+    print("Day:", day)  # Debug: Current day
+    print("Group counts:", group_counts)  # Debug: Input group counts
     total_people = sum(group_counts.values())
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
+    print("Total calories needed:", total_calories_needed)  # Debug: Total calories required for the day
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
 
@@ -87,6 +90,7 @@ def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data
         total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
         total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
 
+        print("Selected recipe:", selected_recipe["name"], "with nutrition:", recipe_nutrition)  # Debug: Selected recipe and nutrition
         menu_summary.append({
             "name": selected_recipe["name"],
             "type": selected_recipe["type"],
@@ -99,10 +103,12 @@ def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data
         # 記錄已選菜品
         used_recipes.append(selected_recipe)
 
+    print("Menu summary for day", day, ":", menu_summary)  # Debug: Final menu for the day
     return menu_summary
 
 # 為 5 天生成菜單
 def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data):
+    print("Weekly menu generation started")  # Debug: Weekly menu start
     weekly_menu = {}
     used_recipes = []  # 全局已使用菜品記錄
 

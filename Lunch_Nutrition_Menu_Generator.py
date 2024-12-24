@@ -47,58 +47,63 @@ def generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutriti
     used_recipes = []  # 全局已使用菜品記錄
 
     for day in range(1, 6):  # 1 到 5 天
-        daily_menu = calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes)
-        weekly_menu[f"Day {day}"] = daily_menu
-
-        # 校驗每日總蛋白質是否符合範圍
-        daily_total_protein = sum(item['nutrition']['蛋白質'] for item in daily_menu)
-        if not (total_protein * 0.9 <= daily_total_protein <= total_protein * 1.1):
-            st.warning(f"Day {day} 的總蛋白質 ({daily_total_protein} 克) 不在範圍內，正在重新生成...")
-            return generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data)
+        daily_menu = calculate_menu_for_day_dynamic(
+            recipes, total_calories, total_protein, nutrition_data, used_recipes, max_retries=10
+        )
+        if not daily_menu:
+            st.error(f"Day {day} 的菜單未能在限制內滿足蛋白質需求。請檢查數據或調整菜單設置。")
+        else:
+            weekly_menu[f"Day {day}"] = daily_menu
 
     return weekly_menu
 
 # 計算單天菜單（動態蛋白質和熱量）
-def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes):
+def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes, max_retries=10):
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories * ratio for category, ratio in category_ratios.items()}
 
-    categorized_recipes = {category: [] for category in category_ratios.keys()}
-    for recipe in recipes:
-        if recipe["type"] in categorized_recipes and recipe not in used_recipes:
-            categorized_recipes[recipe["type"]].append(recipe)
+    for _ in range(max_retries):
+        categorized_recipes = {category: [] for category in category_ratios.keys()}
+        for recipe in recipes:
+            if recipe["type"] in categorized_recipes and recipe not in used_recipes:
+                categorized_recipes[recipe["type"]].append(recipe)
 
-    menu_summary = []
+        menu_summary = []
 
-    for category, ratio in category_ratios.items():
-        available_recipes = categorized_recipes.get(category, [])
-        if not available_recipes:
-            continue
-        selected_recipe = random.choice(available_recipes)
+        for category, ratio in category_ratios.items():
+            available_recipes = categorized_recipes.get(category, [])
+            if not available_recipes:
+                continue
+            selected_recipe = random.choice(available_recipes)
 
-        recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
-        if recipe_nutrition["熱量"] == 0 or recipe_nutrition["蛋白質"] == 0:
-            continue
-        portions = min(
-            round(category_calories[category] / recipe_nutrition["熱量"], 1),
-            round(total_protein / recipe_nutrition["蛋白質"], 1)
-        )
+            recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
+            if recipe_nutrition["熱量"] == 0 or recipe_nutrition["蛋白質"] == 0:
+                continue
+            portions = min(
+                round(category_calories[category] / recipe_nutrition["熱量"], 1),
+                round(total_protein / recipe_nutrition["蛋白質"], 1)
+            )
 
-        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
-        total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
+            total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
+            total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
 
-        menu_summary.append({
-            "name": selected_recipe["name"],
-            "type": selected_recipe["type"],
-            "calories": total_nutrition["熱量"],
-            "nutrition": total_nutrition,
-            "portions": portions,
-            "ingredients": total_ingredients
-        })
+            menu_summary.append({
+                "name": selected_recipe["name"],
+                "type": selected_recipe["type"],
+                "calories": total_nutrition["熱量"],
+                "nutrition": total_nutrition,
+                "portions": portions,
+                "ingredients": total_ingredients
+            })
 
-        used_recipes.append(selected_recipe)
+            used_recipes.append(selected_recipe)
 
-    return menu_summary
+        # 校驗每日總蛋白質是否符合範圍
+        daily_total_protein = sum(item["nutrition"]["蛋白質"] for item in menu_summary)
+        if total_protein * 0.9 <= daily_total_protein <= total_protein * 1.1:
+            return menu_summary
+
+    return []  # 如果達到最大嘗試次數，返回空菜單
 
 # 計算營養成分
 def calculate_recipe_nutrition(ingredients, nutrition_data):

@@ -44,7 +44,7 @@
     "九層塔": {"calories": 27.3979, "protein": 2.904, "fat": 0.2916, "carbs": 4.4484},
     "甘藍": {"calories": 23.1788, "protein": 1.308, "fat": 0.1439, "carbs": 4.7557},
     "甘藷葉": {"calories": 27.8434, "protein": 3.1552, "fat": 0.2784, "carbs": 4.4222},
-    "蚵仔白菜(2022年取樣)": {"calories": 13.0932, "protein": 1.399, "fat": 0.3098, "carbs": 1.7525},
+    "蚵仔白菜": {"calories": 13.0932, "protein": 1.399, "fat": 0.3098, "carbs": 1.7525},
     "黑葉白菜(短梗)": {"calories": 15.1397, "protein": 1.343, "fat": 0.0386, "carbs": 2.8969},
     "油菜": {"calories": 12.0508, "protein": 1.419, "fat": 0.2325, "carbs": 1.6377},
     "包心白菜": {"calories": 14.4402, "protein": 1.1837, "fat": 0.1424, "carbs": 2.6018},
@@ -113,5 +113,7 @@
     "冷凍蟹味棒": {"calories": 117.7915, "protein": 9.3, "fat": 0.6783, "carbs": 18.6217},
     "茄汁鯖魚罐頭": {"calories": 116.2647, "protein": 17.577, "fat": 3.8423, "carbs": 2.844},
     "糙稉米": {"calories": 364.2759, "protein": 7.436, "fat": 2.3292, "carbs": 76.6276},
+    "大骨": {"calories": 7.9266, "protein": 0.948, "fat": 0.43, "carbs": 0.0274}, 
+    "去皮雞胸肉": {"calories": 116.7727, "protein": 23.314, "fat": 1.9093, "carbs": 0.637},   
     "檸檬": {"calories": 33.3043, "protein": 0.708, "fat": 0.5335, "carbs": 7.35}
 }

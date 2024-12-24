@@ -43,46 +43,16 @@ def load_nutrition_data():
         st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
         st.stop()
 
-# 計算單天的菜單
-def calculate_menu_for_day(recipes, used_recipes):
-    categorized_recipes = {"主食": [], "主菜": [], "副菜": [], "湯品": []}
-
-    # 按類型分類菜品
-    for recipe in recipes:
-        if recipe["type"] in categorized_recipes:
-            categorized_recipes[recipe["type"]].append(recipe)
-
-    menu = []
-    for category, options in categorized_recipes.items():
-        # 排除已使用過的菜品
-        available_options = [recipe for recipe in options if recipe not in used_recipes]
-        
-        if not available_options:  # 如果所有菜品都已用過，重置該類型的使用記錄
-            available_options = options
-            used_recipes = [recipe for recipe in used_recipes if recipe not in options]
-        
-        if available_options:
-            selected_recipe = random.choice(available_options)
-            used_recipes.append(selected_recipe)
-            menu.append({
-                "category": category,
-                "name": selected_recipe["name"],
-                "ingredients": selected_recipe["ingredients"],
-                "nutrition": selected_recipe["nutrition"]
-            })
-        else:
-            st.warning(f"類型 {category} 沒有可用的菜品，請檢查 recipes.json。")
-    return menu
-
-# 生成 5 天菜單
-def generate_weekly_menu(recipes):
-    weekly_menu = {}
-    used_recipes = []  # 記錄已使用的菜品，避免重複
-    for day in range(1, 6):  # 1 到 5 天
-        daily_menu = calculate_menu_for_day(recipes, used_recipes)
-        if daily_menu:
-            weekly_menu[f"Day {day}"] = daily_menu
-    return weekly_menu
+# 計算每日菜單總營養和總食材
+def calculate_total_nutrition_and_ingredients(menu):
+    total_nutrition = {"熱量 (kcal)": 0, "蛋白質 (g)": 0, "脂肪 (g)": 0, "碳水化合物 (g)": 0}
+    total_ingredients = {}
+    for item in menu:
+        for key in total_nutrition:
+            total_nutrition[key] += item["nutrition"].get(key, 0)
+        for ingredient, weight in item["ingredients"].items():
+            total_ingredients[ingredient] = total_ingredients.get(ingredient, 0) + weight
+    return total_nutrition, total_ingredients
 
 # 構建菜單表格
 def build_nutrition_table(menu):
@@ -129,6 +99,44 @@ def build_nutrition_table(menu):
 
     rows.append(total_row)
     return pd.DataFrame(rows)
+
+# 計算單天的菜單
+def calculate_menu_for_day(recipes, used_recipes):
+    categorized_recipes = {"主食": [], "主菜": [], "副菜": [], "湯品": []}
+
+    for recipe in recipes:
+        if recipe["type"] in categorized_recipes:
+            categorized_recipes[recipe["type"]].append(recipe)
+
+    menu = []
+    for category, options in categorized_recipes.items():
+        # 排除已使用過的菜品
+        available_options = [recipe for recipe in options if recipe not in used_recipes]
+        
+        if not available_options:  # 如果所有菜品都已用過，重置該類型的使用記錄
+            available_options = options
+            used_recipes = [recipe for recipe in used_recipes if recipe not in options]
+        
+        if available_options:
+            selected_recipe = random.choice(available_options)
+            used_recipes.append(selected_recipe)
+            menu.append({
+                "category": category,
+                "name": selected_recipe["name"],
+                "ingredients": selected_recipe["ingredients"],
+                "nutrition": selected_recipe["nutrition"]
+            })
+    return menu
+
+# 生成 5 天菜單
+def generate_weekly_menu(recipes):
+    weekly_menu = {}
+    used_recipes = []  # 記錄已使用的菜品，避免重複
+    for day in range(1, 6):  # 1 到 5 天
+        daily_menu = calculate_menu_for_day(recipes, used_recipes)
+        if daily_menu:
+            weekly_menu[f"Day {day}"] = daily_menu
+    return weekly_menu
 
 # 主程式
 def main():

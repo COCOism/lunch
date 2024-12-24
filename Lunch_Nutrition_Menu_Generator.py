@@ -42,23 +42,23 @@ def calculate_protein_requirements(group_counts, protein_ranges):
     return total_min_protein, total_max_protein
 
 # 為 5 天生成菜單
-def generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data):
+def generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data, constraints):
     weekly_menu = {}
     used_recipes = []  # 全局已使用菜品記錄
 
     for day in range(1, 6):  # 1 到 5 天
         daily_menu = calculate_menu_for_day_dynamic(
-            recipes, total_calories, total_protein, nutrition_data, used_recipes, max_retries=10
+            recipes, total_calories, total_protein, nutrition_data, used_recipes, constraints, max_retries=10
         )
         if not daily_menu:
-            st.error(f"Day {day} 的菜單未能在限制內滿足蛋白質需求。請檢查數據或調整菜單設置。")
+            st.error(f"Day {day} 的菜單未能在限制內滿足要求。請檢查數據或調整菜單設置。")
         else:
             weekly_menu[f"Day {day}"] = daily_menu
 
     return weekly_menu
 
 # 計算單天菜單（動態蛋白質和熱量）
-def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes, max_retries=10):
+def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes, constraints, max_retries=10):
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories * ratio for category, ratio in category_ratios.items()}
 
@@ -79,10 +79,12 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutri
             recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
             if recipe_nutrition["熱量"] == 0 or recipe_nutrition["蛋白質"] == 0:
                 continue
-            portions = min(
-                round(category_calories[category] / recipe_nutrition["熱量"], 1),
-                round(total_protein / recipe_nutrition["蛋白質"], 1)
-            )
+
+            portions = 1
+            if "熱量" in constraints:
+                portions = min(portions, round(category_calories[category] / recipe_nutrition["熱量"], 1))
+            if "蛋白質" in constraints:
+                portions = min(portions, round(total_protein / recipe_nutrition["蛋白質"], 1))
 
             total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
             total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
@@ -98,10 +100,17 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutri
 
             used_recipes.append(selected_recipe)
 
-        # 校驗每日總蛋白質是否符合範圍
-        daily_total_protein = sum(item["nutrition"]["蛋白質"] for item in menu_summary)
-        if total_protein * 0.9 <= daily_total_protein <= total_protein * 1.1:
-            return menu_summary
+        # 校驗是否符合所有限制條件
+        if "蛋白質" in constraints:
+            daily_total_protein = sum(item["nutrition"]["蛋白質"] for item in menu_summary)
+            if not (total_protein * 0.9 <= daily_total_protein <= total_protein * 1.1):
+                continue
+        if "熱量" in constraints:
+            daily_total_calories = sum(item["nutrition"]["熱量"] for item in menu_summary)
+            if not (total_calories * 0.9 <= daily_total_calories <= total_calories * 1.1):
+                continue
+
+        return menu_summary
 
     return []  # 如果達到最大嘗試次數，返回空菜單
 
@@ -194,11 +203,13 @@ def main():
     st.sidebar.write(f"每日熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
     st.sidebar.write(f"每日蛋白質需求範圍: {total_min_protein} - {total_max_protein} 克")
 
+    constraints = st.sidebar.multiselect("選擇菜單限制條件", ["熱量", "蛋白質"], default=["熱量", "蛋白質"])
+
     total_calories = (total_min_calories + total_max_calories) // 2
     total_protein = (total_min_protein + total_max_protein) // 2
 
     if st.button("生成 5 天菜單"):
-        weekly_menu = generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data)
+        weekly_menu = generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data, constraints)
 
         for day, menu in weekly_menu.items():
             st.subheader(f"{day} 的菜單")

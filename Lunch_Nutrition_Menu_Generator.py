@@ -35,7 +35,7 @@ def calculate_fixed_calories(fixed_group_counts, calorie_ranges):
 def generate_weekly_menu_fixed(recipes, total_calories, nutrition_data):
     weekly_menu = {}
     used_recipes = []  # 全局已使用菜品記錄
-    
+
     for day in range(1, 6):  # 1 到 5 天
         daily_menu = calculate_menu_for_day_fixed(recipes, total_calories, nutrition_data, used_recipes)
         weekly_menu[f"Day {day}"] = daily_menu
@@ -50,7 +50,7 @@ def calculate_menu_for_day_fixed(recipes, total_calories, nutrition_data, used_r
     categorized_recipes = {category: [] for category in category_ratios.keys()}
     for recipe in recipes:
         if recipe["type"] in categorized_recipes and recipe not in used_recipes:
-            categorized_recipes[recipe["type"].append(recipe)]
+            categorized_recipes[recipe["type"]].append(recipe)
 
     menu_summary = []
 
@@ -59,7 +59,7 @@ def calculate_menu_for_day_fixed(recipes, total_calories, nutrition_data, used_r
         if not available_recipes:
             continue
         selected_recipe = random.choice(available_recipes)
-        
+
         recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
         if recipe_nutrition["熱量"] == 0:
             continue
@@ -116,7 +116,7 @@ def build_nutrition_table_with_ingredients(menu):
             row[ingredient] = f"{amount} 克" if amount > 0 else "——"
             ingredient_totals[ingredient] += amount
         rows.append(row)
-    
+
     total_nutrition = {
         "熱量 (kcal)": sum(row["熱量 (kcal)"] for row in rows),
         "蛋白質 (g)": sum(row["蛋白質 (g)"] for row in rows),
@@ -127,5 +127,52 @@ def build_nutrition_table_with_ingredients(menu):
         "菜品": "總計",
         "類型": "全部",
         "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
-        "蛋白質 (g)": round(total_row_g, all)
-        ...rest here
+        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
+        "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
+        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
+    }
+    for ingredient, total_amount in ingredient_totals.items():
+        total_row[ingredient] = f"{round(total_amount, 1)} 克" if total_amount > 0 else "——"
+    rows.append(total_row)
+
+    return pd.DataFrame(rows)
+
+# 主應用
+def main():
+    st.title("固定人數週菜單生成器")
+
+    recipes = load_recipes()
+    nutrition_data = load_nutrition_data()
+
+    fixed_group_counts = {
+        "幼兒": 6,
+        "國小": 48,
+        "成年男性": 22,
+        "成年女性": 0
+    }
+
+    calorie_ranges = {
+        "幼兒": (400, 560),
+        "國小": (560, 880),
+        "成年男性": (880, 1200),
+        "成年女性": (720, 960)
+    }
+
+    total_min_calories, total_max_calories = calculate_fixed_calories(fixed_group_counts, calorie_ranges)
+    st.sidebar.write(f"每日固定熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
+
+    total_calories = (total_min_calories + total_max_calories) // 2  # 平均熱量需求
+
+    if st.button("生成 5 天菜單"):
+        weekly_menu = generate_weekly_menu_fixed(recipes, total_calories, nutrition_data)
+
+        for day, menu in weekly_menu.items():
+            st.subheader(f"{day} 的菜單")
+            if not menu:
+                st.warning(f"{day} 的菜單未生成，請檢查菜品數據。")
+                continue
+            nutrition_table = build_nutrition_table_with_ingredients(menu)
+            st.dataframe(nutrition_table)
+
+if __name__ == "__main__":
+    main()

@@ -50,7 +50,7 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, nutrition_data, used
     categorized_recipes = {category: [] for category in category_ratios.keys()}
     for recipe in recipes:
         if recipe["type"] in categorized_recipes and recipe not in used_recipes:
-            categorized_recipes[recipe["type"]].append(recipe)
+            categorized_recipes[recipe["type"].append(recipe)]
 
     menu_summary = []
 
@@ -94,7 +94,7 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
 # 構建營養成分和食材數量表格
-def build_nutrition_table_with_ingredients(menu):
+def build_nutrition_table_with_ingredients(menu, total_people):
     all_ingredients = set()
     for item in menu:
         all_ingredients.update(item["ingredients"].keys())
@@ -135,6 +135,19 @@ def build_nutrition_table_with_ingredients(menu):
         total_row[f"{ingredient} (g)"] = round(total_amount, 1) if total_amount > 0 else 0
     rows.append(total_row)
 
+    # 添加平均行
+    average_row = {
+        "菜品": "平均",
+        "類型": "全部",
+        "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"] / total_people, 2),
+        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"] / total_people, 2),
+        "脂肪 (g)": round(total_nutrition["脂肪 (g)"] / total_people, 2),
+        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"] / total_people, 2),
+    }
+    for ingredient, total_amount in ingredient_totals.items():
+        average_row[f"{ingredient} (g)"] = round(total_amount / total_people, 2) if total_people > 0 else 0
+    rows.append(average_row)
+
     return pd.DataFrame(rows)
 
 # 主應用
@@ -160,6 +173,7 @@ def main():
     total_min_calories, total_max_calories = calculate_dynamic_calories(group_counts, calorie_ranges)
     st.sidebar.write(f"每日熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
     total_calories = (total_min_calories + total_max_calories) // 2
+    total_people = sum(group_counts.values())
 
     if st.button("生成 5 天菜單"):
         weekly_menu = generate_weekly_menu_dynamic(recipes, total_calories, nutrition_data)
@@ -169,7 +183,7 @@ def main():
             if not menu:
                 st.warning(f"{day} 的菜單未生成，請檢查菜品數據。")
                 continue
-            nutrition_table = build_nutrition_table_with_ingredients(menu)
+            nutrition_table = build_nutrition_table_with_ingredients(menu, total_people)
             st.dataframe(nutrition_table)
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, nutrition_data, used
     categorized_recipes = {category: [] for category in category_ratios.keys()}
     for recipe in recipes:
         if recipe["type"] in categorized_recipes and recipe not in used_recipes:
-            categorized_recipes[recipe["type"].append(recipe)]
+            categorized_recipes[recipe["type"]].append(recipe)
 
     menu_summary = []
 

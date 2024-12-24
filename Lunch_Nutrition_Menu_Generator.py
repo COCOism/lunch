@@ -21,29 +21,29 @@ def load_nutrition_data():
         st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
         st.stop()
 
-# 計算每日總熱量需求
-def calculate_dynamic_calories(group_counts, calorie_ranges):
-    total_min_calories = 0
-    total_max_calories = 0
+# 計算每日總蛋白質需求
+def calculate_protein_requirements(group_counts, protein_ranges):
+    total_min_protein = 0
+    total_max_protein = 0
     for group, count in group_counts.items():
-        group_min, group_max = calorie_ranges[group]
-        total_min_calories += group_min * count
-        total_max_calories += group_max * count
-    return total_min_calories, total_max_calories
+        group_min, group_max = protein_ranges[group]
+        total_min_protein += group_min * count
+        total_max_protein += group_max * count
+    return total_min_protein, total_max_protein
 
 # 為 5 天生成菜單
-def generate_weekly_menu_dynamic(recipes, total_calories, nutrition_data):
+def generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data):
     weekly_menu = {}
     used_recipes = []  # 全局已使用菜品記錄
 
     for day in range(1, 6):  # 1 到 5 天
-        daily_menu = calculate_menu_for_day_dynamic(recipes, total_calories, nutrition_data, used_recipes)
+        daily_menu = calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes)
         weekly_menu[f"Day {day}"] = daily_menu
 
     return weekly_menu
 
-# 計算單天菜單（動態熱量）
-def calculate_menu_for_day_dynamic(recipes, total_calories, nutrition_data, used_recipes):
+# 計算單天菜單（動態蛋白質和熱量）
+def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes):
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories * ratio for category, ratio in category_ratios.items()}
 
@@ -61,9 +61,12 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, nutrition_data, used
         selected_recipe = random.choice(available_recipes)
 
         recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
-        if recipe_nutrition["熱量"] == 0:
+        if recipe_nutrition["熱量"] == 0 or recipe_nutrition["蛋白質"] == 0:
             continue
-        portions = round(category_calories[category] / recipe_nutrition["熱量"], 1)
+        portions = min(
+            round(category_calories[category] / recipe_nutrition["熱量"], 1),
+            round(total_protein / recipe_nutrition["蛋白質"], 1)
+        )
 
         total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
         total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
@@ -139,7 +142,7 @@ def build_nutrition_table_with_ingredients(menu):
 
 # 主應用
 def main():
-    st.title("動態人數週菜單生成器")
+    st.title("動態人數週菜單生成器（蛋白質與熱量平衡）")
 
     recipes = load_recipes()
     nutrition_data = load_nutrition_data()
@@ -151,6 +154,13 @@ def main():
         "成年女性": (720, 960)
     }
 
+    protein_ranges = {
+        "幼兒": (6, 8),
+        "國小": (12, 20),
+        "成年男性": (24, 32),
+        "成年女性": (20, 28)
+    }
+
     group_counts = {
         "幼兒": st.sidebar.number_input("幼兒人數", min_value=0, value=6),
         "國小": st.sidebar.number_input("國小人數", min_value=0, value=48),
@@ -158,11 +168,16 @@ def main():
         "成年女性": st.sidebar.number_input("成年女性人數", min_value=0, value=0),
     }
     total_min_calories, total_max_calories = calculate_dynamic_calories(group_counts, calorie_ranges)
+    total_min_protein, total_max_protein = calculate_protein_requirements(group_counts, protein_ranges)
+
     st.sidebar.write(f"每日熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
+    st.sidebar.write(f"每日蛋白質需求範圍: {total_min_protein} - {total_max_protein} 克")
+
     total_calories = (total_min_calories + total_max_calories) // 2
+    total_protein = (total_min_protein + total_max_protein) // 2
 
     if st.button("生成 5 天菜單"):
-        weekly_menu = generate_weekly_menu_dynamic(recipes, total_calories, nutrition_data)
+        weekly_menu = generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data)
 
         for day, menu in weekly_menu.items():
             st.subheader(f"{day} 的菜單")

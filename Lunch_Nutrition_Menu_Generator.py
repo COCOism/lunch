@@ -1,3 +1,99 @@
+import streamlit as st
+import pandas as pd
+import json
+import random
+
+# 加載菜譜數據
+def load_recipes():
+    try:
+        with open("recipes.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        st.error("找不到 recipes.json 文件，請確保文件存在於程序目錄中。")
+        st.stop()
+    except json.JSONDecodeError as e:
+        st.error(f"解析 recipes.json 時發生錯誤：{e}")
+        st.stop()
+
+# 加載食材營養數據
+def load_nutrition_data():
+    try:
+        with open("ingredients_nutrition.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        st.error("找不到 ingredients_nutrition.json 文件，請確保文件存在於程序目錄中。")
+        st.stop()
+    except json.JSONDecodeError as e:
+        st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
+        st.stop()
+
+# 計算營養成分
+def calculate_recipe_nutrition(ingredients, nutrition_data):
+    total_nutrition = {"熱量": 0, "蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
+    for ingredient, weight in ingredients.items():
+        if ingredient in nutrition_data:
+            nutrient = nutrition_data[ingredient]
+            total_nutrition["熱量"] += nutrient["calories"] * weight / 100
+            total_nutrition["蛋白質"] += nutrient["protein"] * weight / 100
+            total_nutrition["脂肪"] += nutrient["fat"] * weight / 100
+            total_nutrition["碳水化合物"] += nutrient["carbs"] * weight / 100
+    return {key: round(value, 1) for key, value in total_nutrition.items()}
+
+# 計算單天菜單
+def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes, lunch_calorie_ranges):
+    total_people = sum(group_counts.values())
+    total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items() if count > 0)
+    category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
+    category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
+
+    categorized_recipes = {category: [] for category in category_ratios.keys()}
+    for recipe in recipes:
+        if recipe["type"] in categorized_recipes and recipe not in used_recipes:
+            categorized_recipes[recipe["type"]].append(recipe)
+
+    menu_summary = []
+    total_calories_actual = {group: 0 for group in group_counts.keys()}
+
+    for category, ratio in category_ratios.items():
+        available_recipes = categorized_recipes.get(category, [])
+        if not available_recipes:
+            continue
+        selected_recipe = random.choice(available_recipes)
+        recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
+        if recipe_nutrition["熱量"] == 0:
+            continue
+
+        portions = round(category_calories[category] / recipe_nutrition["熱量"], 1)
+        portions = min(portions, total_people)
+
+        for group, count in group_counts.items():
+            group_calories = recipe_nutrition["熱量"] * portions / total_people * count
+            total_calories_actual[group] += group_calories
+
+        menu_summary.append({
+            "name": selected_recipe["name"],
+            "type": selected_recipe["type"],
+            "calories": recipe_nutrition["熱量"],
+            "nutrition": json.dumps(recipe_nutrition, ensure_ascii=False),
+            "portions": portions,
+            "ingredients": json.dumps(selected_recipe["ingredients"], ensure_ascii=False),
+        })
+        used_recipes.append(selected_recipe)
+
+    return menu_summary
+
+# 為 5 天生成菜單
+def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data, lunch_calorie_ranges):
+    weekly_menu = {}
+    used_recipes = []
+
+    for day in range(1, 6):
+        daily_menu = calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes, lunch_calorie_ranges)
+        weekly_menu[f"Day {day}"] = daily_menu
+
+    return weekly_menu
+
+# 主應用
 def main():
     st.title("週菜單生成器")
 
@@ -58,16 +154,6 @@ def main():
                 for i, item in enumerate(menu)
             ])
 
-            # 熱量範圍檢查
-            total_calories = sum(item["calories"] for item in menu)
-            if total_calories < min_total_calories:
-                st.warning(f"菜單總熱量 ({total_calories:.1f} kcal) 過低，不符合需求範圍 ({min_total_calories}-{max_total_calories} kcal)")
-            elif total_calories > max_total_calories:
-                st.warning(f"菜單總熱量 ({total_calories:.1f} kcal) 過高，不符合需求範圍 ({min_total_calories}-{max_total_calories} kcal)")
-            else:
-                st.success(f"菜單總熱量 ({total_calories:.1f} kcal) 符合需求範圍 ({min_total_calories}-{max_total_calories} kcal)")
-
-            # 顯示恢復格式後的菜單
             st.write(formatted_menu)
 
 if __name__ == "__main__":

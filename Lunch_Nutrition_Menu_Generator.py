@@ -21,6 +21,16 @@ def load_nutrition_data():
         st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
         st.stop()
 
+# 計算每日總熱量需求
+def calculate_dynamic_calories(group_counts, calorie_ranges):
+    total_min_calories = 0
+    total_max_calories = 0
+    for group, count in group_counts.items():
+        group_min, group_max = calorie_ranges[group]
+        total_min_calories += group_min * count
+        total_max_calories += group_max * count
+    return total_min_calories, total_max_calories
+
 # 計算每日總蛋白質需求
 def calculate_protein_requirements(group_counts, protein_ranges):
     total_min_protein = 0

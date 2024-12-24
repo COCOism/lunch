@@ -3,16 +3,38 @@ import pandas as pd
 import json
 import random
 
+# 加載菜品數據
+def load_recipes():
+    try:
+        with open("recipes.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        st.error("找不到 recipes.json 文件，請確保該文件存在於程式目錄中。")
+        st.stop()
+    except json.JSONDecodeError as e:
+        st.error(f"解析 recipes.json 時發生錯誤：{e}")
+        st.stop()
+
+# 加載營養數據
+def load_nutrition_data():
+    try:
+        with open("ingredients_nutrition.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        st.error("找不到 ingredients_nutrition.json 文件，請確保該文件存在於程式目錄中。")
+        st.stop()
+    except json.JSONDecodeError as e:
+        st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
+        st.stop()
+
 # 計算總需求範圍
 def calculate_total_needs(group_counts):
-    # 每人每日午餐需求（30-40%）
     lunch_needs_per_person = {
         "幼兒": {"熱量 (kcal)": (360, 600), "蛋白質 (g)": (7.5, 14), "脂肪 (g)": (10.5, 18), "碳水化合物 (g)": (39, 80)},
         "國小": {"熱量 (kcal)": (480, 800), "蛋白質 (g)": (15, 28), "脂肪 (g)": (13.5, 24), "碳水化合物 (g)": (60, 120)},
         "成人": {"熱量 (kcal)": (600, 1000), "蛋白質 (g)": (18, 32), "脂肪 (g)": (15, 32), "碳水化合物 (g)": (75, 140)},
     }
 
-    # 每組總需求加總
     total_needs = {"熱量 (kcal)": [0, 0], "蛋白質 (g)": [0, 0], "脂肪 (g)": [0, 0], "碳水化合物 (g)": [0, 0]}
     for group, count in group_counts.items():
         if group.startswith("幼兒"):
@@ -61,7 +83,7 @@ def main():
 
     # 點擊按鈕生成菜單
     if st.button("生成 5 天菜單"):
-        weekly_menu = generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data)
+        weekly_menu = generate_weekly_menu(recipes, group_counts, nutrition_data)
 
         for day, menu in weekly_menu.items():
             st.subheader(f"{day} 的菜單")

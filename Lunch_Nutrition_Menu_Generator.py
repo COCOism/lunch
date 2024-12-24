@@ -132,7 +132,7 @@ def build_nutrition_table_with_ingredients(menu):
         }
         for ingredient in all_ingredients:
             amount = item["ingredients"].get(ingredient, 0)
-            row[ingredient] = round(amount, 1) if amount > 0 else "—"
+            row[ingredient] = amount
             ingredient_totals[ingredient] += amount
         rows.append(row)
     
@@ -151,7 +151,7 @@ def build_nutrition_table_with_ingredients(menu):
         "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
     }
     for ingredient, total_amount in ingredient_totals.items():
-        total_row[ingredient] = f"{round(total_amount, 1)} 克" if total_amount > 0 else "——"
+        total_row[ingredient] = round(total_amount, 1)
     rows.append(total_row)
 
     return pd.DataFrame(rows)

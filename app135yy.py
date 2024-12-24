@@ -5,14 +5,14 @@ import random
 
 # 計算單道菜的營養數據
 def calculate_recipe_nutrition(ingredients, nutrition_data):
-    total_nutrition = {"熱量 (kcal)": 0, "蛋白質 (g)": 0, "脂肪 (g)": 0, "碳水化合物 (g)": 0}
+    total_nutrition = {"熱量": 0, "蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
     for ingredient, weight in ingredients.items():
         if ingredient in nutrition_data:
             nutrient = nutrition_data[ingredient]
-            total_nutrition["熱量 (kcal)"] += nutrient["calories"] * weight / 100
-            total_nutrition["蛋白質 (g)"] += nutrient["protein"] * weight / 100
-            total_nutrition["脂肪 (g)"] += nutrient["fat"] * weight / 100
-            total_nutrition["碳水化合物 (g)"] += nutrient["carbs"] * weight / 100
+            total_nutrition["熱量"] += nutrient["calories"] * weight / 100
+            total_nutrition["蛋白質"] += nutrient["protein"] * weight / 100
+            total_nutrition["脂肪"] += nutrient["fat"] * weight / 100
+            total_nutrition["碳水化合物"] += nutrient["carbs"] * weight / 100
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
 # 加載菜品數據並計算營養
@@ -45,7 +45,7 @@ def load_nutrition_data():
 
 # 計算每日菜單總營養和總食材
 def calculate_total_nutrition_and_ingredients(menu):
-    total_nutrition = {"熱量 (kcal)": 0, "蛋白質 (g)": 0, "脂肪 (g)": 0, "碳水化合物 (g)": 0}
+    total_nutrition = {"熱量": 0, "蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
     total_ingredients = {}
     for item in menu:
         for key in total_nutrition:
@@ -71,14 +71,14 @@ def build_nutrition_table(menu):
         row = {
             "類型": item["category"],
             "菜名": item["name"],
-            "熱量 (kcal)": item["nutrition"].get("熱量 (kcal)", 0),
-            "蛋白質 (g)": item["nutrition"].get("蛋白質 (g)", 0),
-            "脂肪 (g)": item["nutrition"].get("脂肪 (g)", 0),
-            "碳水化合物 (g)": item["nutrition"].get("碳水化合物 (g)", 0),
+            "熱量": item["nutrition"].get("熱量", 0),
+            "蛋白質": item["nutrition"].get("蛋白質", 0),
+            "脂肪": item["nutrition"].get("脂肪", 0),
+            "碳水化合物": item["nutrition"].get("碳水化合物", 0),
         }
         for ingredient in all_ingredients:
             weight = item["ingredients"].get(ingredient, 0)
-            row[ingredient] = f"{weight} g" if weight > 0 else "——"
+            row[ingredient] = weight if weight > 0 else 0
             total_ingredients[ingredient] += weight
         rows.append(row)
 
@@ -88,17 +88,27 @@ def build_nutrition_table(menu):
     # 添加總計行
     total_row = {
         "類型": "總計",
-        "菜名": "——",
-        "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
-        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
-        "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
-        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
+        "菜名": "",
+        "熱量": round(total_nutrition["熱量"], 1),
+        "蛋白質": round(total_nutrition["蛋白質"], 1),
+        "脂肪": round(total_nutrition["脂肪"], 1),
+        "碳水化合物": round(total_nutrition["碳水化合物"], 1),
     }
     for ingredient in all_ingredients:
-        total_row[ingredient] = f"{total_ingredients[ingredient]} g" if total_ingredients[ingredient] > 0 else "——"
-
+        total_row[ingredient] = total_ingredients[ingredient]
     rows.append(total_row)
-    return pd.DataFrame(rows)
+
+    # 构建表格，单位在表头
+    df = pd.DataFrame(rows)
+    df.rename(columns={
+        "熱量": "熱量 (kcal)",
+        "蛋白質": "蛋白質 (g)",
+        "脂肪": "脂肪 (g)",
+        "碳水化合物": "碳水化合物 (g)"
+    }, inplace=True)
+    for ingredient in all_ingredients:
+        df.rename(columns={ingredient: f"{ingredient} (g)"}, inplace=True)
+    return df
 
 # 計算單天的菜單
 def calculate_menu_for_day(recipes, used_recipes):

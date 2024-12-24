@@ -84,7 +84,7 @@ def calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutri
                 round(total_protein / recipe_nutrition["蛋白質"], 1)
             )
 
-            total_ingredients = {f"{ing} (g)": round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
+            total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
             total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
 
             menu_summary.append({
@@ -137,7 +137,7 @@ def build_nutrition_table_with_ingredients(menu):
         }
         for ingredient in all_ingredients:
             amount = item["ingredients"].get(ingredient, 0)
-            row[ingredient] = f"{round(amount, 1)}" if amount > 0 else "——"
+            row[f"{ingredient} (g)"] = f"{round(amount, 1)}" if amount > 0 else "0"
             ingredient_totals[ingredient] += amount
         rows.append(row)
 
@@ -156,7 +156,7 @@ def build_nutrition_table_with_ingredients(menu):
         "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
     }
     for ingredient, total_amount in ingredient_totals.items():
-        total_row[f"{ingredient} (g)"] = f"{round(total_amount, 1)}" if total_amount > 0 else "——"
+        total_row[f"{ingredient} (g)"] = f"{round(total_amount, 1)}"
     rows.append(total_row)
 
     return pd.DataFrame(rows)

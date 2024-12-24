@@ -9,7 +9,7 @@ def load_recipes():
     try:
         with open("recipes.json", "r", encoding="utf-8") as file:
             return json.load(file)
-    except json.JSONDecodeError as e:
+    except Exception as e:
         st.error(f"解析 recipes.json 時發生錯誤：{e}")
         st.stop()
 
@@ -18,7 +18,7 @@ def load_nutrition_data():
     try:
         with open("ingredients_nutrition.json", "r", encoding="utf-8") as file:
             return json.load(file)
-    except json.JSONDecodeError as e:
+    except Exception as e:
         st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
         st.stop()
 
@@ -53,11 +53,11 @@ def validate_nutrition_ratio(menu_summary, total_calories):
         "valid": 15 <= protein_ratio <= 25 and 20 <= fat_ratio <= 30 and 50 <= carb_ratio <= 60
     }
 
-# 畫出每日營養比例的圖表
+# 繪製營養比例圖表
 def plot_nutrition_ratio(validation):
     labels = ["蛋白質", "脂肪", "碳水化合物"]
     values = [validation["蛋白質"], validation["脂肪"], validation["碳水化合物"]]
-    plt.bar(labels, values)
+    plt.bar(labels, values, color=["#ff9999", "#66b3ff", "#99ff99"])
     plt.axhline(y=15, color='red', linestyle='--', label='蛋白質最低')
     plt.axhline(y=25, color='red', linestyle='--', label='蛋白質最高')
     plt.axhline(y=20, color='blue', linestyle='--', label='脂肪最低')
@@ -69,7 +69,7 @@ def plot_nutrition_ratio(validation):
     plt.legend()
     st.pyplot(plt)
 
-# 生成每日菜單
+# 為某一天生成菜單
 def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes):
     total_people = sum(group_counts.values())
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
@@ -82,7 +82,7 @@ def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data
             categorized_recipes[recipe["type"]].append(recipe)
 
     menu_summary = []
-    for category, ratio in category_ratios.items():
+    for category in category_ratios:
         available_recipes = categorized_recipes.get(category, [])
         if not available_recipes:
             continue
@@ -110,6 +110,21 @@ def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data
 
     return menu_summary
 
+# 構建營養表
+def build_nutrition_table_with_ingredients(menu):
+    rows = []
+    for item in menu:
+        row = {
+            "菜品": item["name"],
+            "類型": item["type"],
+            "熱量 (kcal)": item["nutrition"]["熱量"],
+            "蛋白質 (g)": item["nutrition"]["蛋白質"],
+            "脂肪 (g)": item["脂肪"],
+            "碳水化合物 (g)": item["碳水化合物"]
+        }
+        rows.append(row)
+    return pd.DataFrame(rows)
+
 # 主應用
 def main():
     st.title("週菜單生成器 - 營養比例檢查")
@@ -129,7 +144,7 @@ def main():
     calories_per_day = {
         "幼兒_男": 1400, "幼兒_女": 1300,
         "國小_男": 1800, "國小_女": 1600,
-        "成人_男": 2500, "成人_女": 2000
+        "成人_男": 2500, "成人_女": 2000,
     }
     lunch_ratio = 0.4
     lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
@@ -139,13 +154,20 @@ def main():
         for day in range(1, 6):
             st.subheader(f"第 {day} 天的菜單")
             daily_menu = calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes)
+            
             total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
             validation = validate_nutrition_ratio(daily_menu, total_calories_needed)
+
             if not validation["valid"]:
-                st.error(f"第 {day} 天的營養比例不符合要求，請調整菜品！")
+                st.error(f"第 {day} 天的營養比例不符合要求，請調整菜單！")
             else:
                 st.success(f"第 {day} 天的營養比例符合要求！")
+
             plot_nutrition_ratio(validation)
+
+            if daily_menu:
+                nutrition_table = build_nutrition_table_with_ingredients(daily_menu)
+                st.dataframe(nutrition_table)
 
 if __name__ == "__main__":
     main()

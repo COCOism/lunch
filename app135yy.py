@@ -3,11 +3,21 @@ import pandas as pd
 import json
 import random
 
-# 加載菜品數據
+# 加載菜品數據並檢查完整性
 def load_recipes():
     try:
         with open("recipes.json", "r", encoding="utf-8") as file:
-            return json.load(file)
+            recipes = json.load(file)
+            # 檢查每個菜品是否有 nutrition 鍵，若無則補充默認值
+            for recipe in recipes:
+                if "nutrition" not in recipe:
+                    recipe["nutrition"] = {
+                        "熱量 (kcal)": 0,
+                        "蛋白質 (g)": 0,
+                        "脂肪 (g)": 0,
+                        "碳水化合物 (g)": 0
+                    }
+            return recipes
     except FileNotFoundError:
         st.error("找不到 recipes.json 文件，請確保該文件存在於程式目錄中。")
         st.stop()
@@ -27,7 +37,7 @@ def load_nutrition_data():
         st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
         st.stop()
 
-# 計算單天的菜單
+# 計算單天菜單
 def calculate_menu_for_day(recipes, group_counts, nutrition_data, day, used_recipes):
     categorized_recipes = {"主食": [], "主菜": [], "副菜": [], "湯品": []}
 

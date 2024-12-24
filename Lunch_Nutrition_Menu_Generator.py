@@ -1,16 +1,7 @@
-
-import streamlit as st 
+import streamlit as st
 import pandas as pd
 import json
 import random
-
-# 午餐營養需求（40%每日需求）
-nutrition_requirements = {
-    "幼兒": {"calories": 400, "protein": 6, "fat": 13, "carbs": 50},
-    "國小": {"calories": 560, "protein": 12, "fat": 15, "carbs": 70},
-    "成年男性": {"calories": 880, "protein": 24, "fat": 20, "carbs": 110},
-    "成年女性": {"calories": 720, "protein": 20, "fat": 16, "carbs": 90}
-}
 
 # 加載菜譜數據
 def load_recipes():
@@ -43,124 +34,67 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
 # 計算單天菜單
-def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes):
-    print("Day:", day)  # Debug: Current day
-    print("Group counts:", group_counts)  # Debug: Input group counts
+def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes, lunch_calorie_ranges):
     total_people = sum(group_counts.values())
     total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
-    print("Total calories needed:", total_calories_needed)  # Debug: Total calories required for the day
     category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
     category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
 
-    # 按類型分類菜品
     categorized_recipes = {category: [] for category in category_ratios.keys()}
     for recipe in recipes:
         if recipe["type"] in categorized_recipes and recipe not in used_recipes:
             categorized_recipes[recipe["type"]].append(recipe)
 
     menu_summary = []
+    total_calories_actual = {group: 0 for group in group_counts.keys()}
 
     for category, ratio in category_ratios.items():
-        # 主菜根據天數選擇肉品
-        if category == "主菜":
-            if day in [1, 3, 5]:  # 1, 3, 5 天使用豬肉
-                available_recipes = [r for r in categorized_recipes[category] if "豬肉" in r["ingredients"]]
-            elif day in [2, 4]:  # 2, 4 天使用雞肉
-                available_recipes = [r for r in categorized_recipes[category] if "雞肉" in r["ingredients"]]
-            else:
-                available_recipes = categorized_recipes[category]
-
-            # 如果無符合條件的主菜，回退到所有主菜中隨機選擇
-            if not available_recipes:
-                available_recipes = categorized_recipes[category]
-        else:
-            available_recipes = categorized_recipes.get(category, [])
-
+        available_recipes = categorized_recipes.get(category, [])
         if not available_recipes:
-            continue  # 如果該類型沒有菜品可選，跳過
+            continue
         selected_recipe = random.choice(available_recipes)
-
-        # 計算該菜品的營養成分和食材數量
         recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
         if recipe_nutrition["熱量"] == 0:
             continue
+
         portions = round(category_calories[category] / recipe_nutrition["熱量"], 1)
         portions = min(portions, total_people)
 
-        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
-        total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
+        for group, count in group_counts.items():
+            group_calories = recipe_nutrition["熱量"] * portions / total_people * count
+            total_calories_actual[group] += group_calories
 
-        print("Selected recipe:", selected_recipe["name"], "with nutrition:", recipe_nutrition)  # Debug: Selected recipe and nutrition
         menu_summary.append({
             "name": selected_recipe["name"],
             "type": selected_recipe["type"],
-            "calories": total_nutrition["熱量"],
-            "nutrition": total_nutrition,
+            "calories": recipe_nutrition["熱量"],
+            "nutrition": recipe_nutrition,
             "portions": portions,
-            "ingredients": total_ingredients
+            "ingredients": {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()},
         })
-
-        # 記錄已選菜品
         used_recipes.append(selected_recipe)
 
-    print("Menu summary for day", day, ":", menu_summary)  # Debug: Final menu for the day
+    for group, (min_cal, max_cal) in lunch_calorie_ranges.items():
+        actual_calories = total_calories_actual[group]
+        if actual_calories < min_cal:
+            st.warning(f"{group} 的實際熱量 ({actual_calories:.1f} kcal) 低於需求範圍 ({min_cal}-{max_cal} kcal)")
+        elif actual_calories > max_cal:
+            st.warning(f"{group} 的實際熱量 ({actual_calories:.1f} kcal) 高於需求範圍 ({min_cal}-{max_cal} kcal)")
+        else:
+            st.success(f"{group} 的實際熱量 ({actual_calories:.1f} kcal) 符合需求範圍 ({min_cal}-{max_cal} kcal)")
+
     return menu_summary
 
 # 為 5 天生成菜單
-def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data):
-    print("Weekly menu generation started")  # Debug: Weekly menu start
+def generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data, lunch_calorie_ranges):
     weekly_menu = {}
-    used_recipes = []  # 全局已使用菜品記錄
+    used_recipes = []
 
-    for day in range(1, 6):  # 1 到 5 天
-        daily_menu = calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes)
+    for day in range(1, 6):
+        daily_menu = calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes, lunch_calorie_ranges)
         weekly_menu[f"Day {day}"] = daily_menu
 
     return weekly_menu
-
-# 構建營養成分和食材數量表格
-def build_nutrition_table_with_ingredients(menu):
-    all_ingredients = set()
-    for item in menu:
-        all_ingredients.update(item["ingredients"].keys())
-
-    rows = []
-    ingredient_totals = {ingredient: 0 for ingredient in all_ingredients}
-
-    for item in menu:
-        row = {
-            "菜品": item["name"],
-            "類型": item["type"],
-            "熱量 (kcal)": item["nutrition"]["熱量"],
-            "蛋白質 (g)": item["nutrition"]["蛋白質"],
-            "脂肪 (g)": item["nutrition"]["脂肪"],
-            "碳水化合物 (g)": item["nutrition"]["碳水化合物"],
-        }
-        for ingredient in all_ingredients:
-            amount = item["ingredients"].get(ingredient, 0)
-            row[f"{ingredient} (g)"] = round(amount, 1)
-            ingredient_totals[ingredient] += amount
-        rows.append(row)
-    
-    total_nutrition = {
-        "熱量 (kcal)": sum(row["熱量 (kcal)"] for row in rows),
-        "蛋白質 (g)": sum(row["蛋白質 (g)"] for row in rows),
-        "脂肪 (g)": sum(row["脂肪 (g)"] for row in rows),
-        "碳水化合物 (g)": sum(row["碳水化合物 (g)"] for row in rows),
-    }
-    total_row = {
-        "菜品": "總計",
-        "類型": "全部",
-        "熱量 (kcal)": round(total_nutrition["熱量 (kcal)"], 1),
-        "蛋白質 (g)": round(total_nutrition["蛋白質 (g)"], 1),
-        "脂肪 (g)": round(total_nutrition["脂肪 (g)"], 1),
-        "碳水化合物 (g)": round(total_nutrition["碳水化合物 (g)"], 1),
-    }
-    for ingredient, total_amount in ingredient_totals.items():
-        total_row[f"{ingredient} (g)"] = round(total_amount, 1)
-    rows.append(total_row)
-
-    return pd.DataFrame(rows)
 
 # 主應用
 def main():
@@ -179,6 +113,15 @@ def main():
         "成人_女": st.sidebar.number_input("成人（女）人數", min_value=0, value=4),
     }
 
+    lunch_calorie_ranges = {
+        "幼兒_男": (400, 560),
+        "幼兒_女": (400, 560),
+        "國小_男": (560, 880),
+        "國小_女": (560, 880),
+        "成人_男": (880, 1200),
+        "成人_女": (720, 960),
+    }
+
     calories_per_day = {
         "幼兒_男": 1400, "幼兒_女": 1300,
         "國小_男": 1800, "國小_女": 1600,
@@ -188,15 +131,14 @@ def main():
     lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
 
     if st.button("生成 5 天菜單"):
-        weekly_menu = generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data)
+        weekly_menu = generate_weekly_menu(recipes, group_counts, lunch_calories, nutrition_data, lunch_calorie_ranges)
 
         for day, menu in weekly_menu.items():
             st.subheader(f"{day} 的菜單")
             if not menu:
                 st.warning(f"{day} 的菜單未生成，請檢查菜品數據。")
                 continue
-            nutrition_table = build_nutrition_table_with_ingredients(menu)
-            st.dataframe(nutrition_table)
+            st.write(menu)
 
 if __name__ == "__main__":
     main()

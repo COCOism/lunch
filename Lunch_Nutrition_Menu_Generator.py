@@ -132,7 +132,7 @@ def build_nutrition_table_with_ingredients(menu):
         }
         for ingredient in all_ingredients:
             amount = item["ingredients"].get(ingredient, 0)
-            row[ingredient] = f"{amount} 克" if amount > 0 else "——"
+            row[ingredient] = round(amount, 1) if amount > 0 else "—"
             ingredient_totals[ingredient] += amount
         rows.append(row)
     

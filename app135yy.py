@@ -2,16 +2,27 @@ import streamlit as st
 import pandas as pd
 import json
 import random
+import matplotlib.pyplot as plt
 
-# 午餐營養需求範圍
-LUNCH_NUTRITION_REQUIREMENTS = {
-    "熱量": {"min": 600, "max": 800},
-    "蛋白質": {"min": 20, "max": 30},
-    "脂肪": {"min": 15, "max": 25},
-    "碳水化合物": {"min": 75, "max": 100},
-}
+# 加載菜譜數據
+def load_recipes():
+    try:
+        with open("recipes.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError as e:
+        st.error(f"解析 recipes.json 時發生錯誤：{e}")
+        st.stop()
 
-# 計算單道菜的營養數據
+# 加載食材營養數據
+def load_nutrition_data():
+    try:
+        with open("ingredients_nutrition.json", "r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError as e:
+        st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
+        st.stop()
+
+# 計算菜品營養成分
 def calculate_recipe_nutrition(ingredients, nutrition_data):
     total_nutrition = {"熱量": 0, "蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
     for ingredient, weight in ingredients.items():
@@ -23,108 +34,118 @@ def calculate_recipe_nutrition(ingredients, nutrition_data):
             total_nutrition["碳水化合物"] += nutrient["carbs"] * weight / 100
     return {key: round(value, 1) for key, value in total_nutrition.items()}
 
-# 加載菜品數據並計算營養
-def load_recipes(nutrition_data):
-    try:
-        with open("recipes.json", "r", encoding="utf-8") as file:
-            recipes = json.load(file)
-            for recipe in recipes:
-                if "nutrition" not in recipe or not recipe["nutrition"]:
-                    recipe["nutrition"] = calculate_recipe_nutrition(recipe["ingredients"], nutrition_data)
-            return recipes
-    except FileNotFoundError:
-        st.error("找不到 recipes.json 文件，請確保該文件存在於程式目錄中。")
-        st.stop()
-    except json.JSONDecodeError as e:
-        st.error(f"解析 recipes.json 時發生錯誤：{e}")
-        st.stop()
+# 檢查每日營養比例
+def validate_nutrition_ratio(menu_summary, total_calories):
+    nutrition = {"蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
+    for item in menu_summary:
+        nutrition["蛋白質"] += item["nutrition"]["蛋白質"]
+        nutrition["脂肪"] += item["nutrition"]["脂肪"]
+        nutrition["碳水化合物"] += item["nutrition"]["碳水化合物"]
 
-# 加載食材營養數據
-def load_nutrition_data():
-    try:
-        with open("ingredients_nutrition.json", "r", encoding="utf-8") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        st.error("找不到 ingredients_nutrition.json 文件，請確保該文件存在於程式目錄中。")
-        st.stop()
-    except json.JSONDecodeError as e:
-        st.error(f"解析 ingredients_nutrition.json 時發生錯誤：{e}")
-        st.stop()
+    protein_ratio = (nutrition["蛋白質"] * 4) / total_calories * 100
+    fat_ratio = (nutrition["脂肪"] * 9) / total_calories * 100
+    carb_ratio = (nutrition["碳水化合物"] * 4) / total_calories * 100
 
-# 計算每日菜單總營養
-def calculate_total_nutrition(menu):
-    total_nutrition = {"熱量": 0, "蛋白質": 0, "脂肪": 0, "碳水化合物": 0}
-    for item in menu:
-        for key in total_nutrition:
-            total_nutrition[key] += item["nutrition"].get(key, 0)
-    return total_nutrition
-
-# 檢查菜單是否符合營養需求
-def check_nutrition_compliance(total_nutrition):
-    compliance = {}
-    for nutrient, range_values in LUNCH_NUTRITION_REQUIREMENTS.items():
-        value = total_nutrition.get(nutrient, 0)
-        compliance[nutrient] = range_values["min"] <= value <= range_values["max"]
-    return compliance
-
-# 構建菜單表格
-def build_nutrition_table(menu, total_nutrition):
-    rows = []
-    for item in menu:
-        row = {
-            "類型": item["category"],
-            "菜名": item["name"],
-            "熱量 (kcal)": item["nutrition"]["熱量"],
-            "蛋白質 (g)": item["nutrition"]["蛋白質"],
-            "脂肪 (g)": item["nutrition"]["脂肪"],
-            "碳水化合物 (g)": item["nutrition"]["碳水化合物"],
-        }
-        rows.append(row)
-
-    # 添加總計行
-    total_row = {
-        "類型": "總計",
-        "菜名": "",
-        "熱量 (kcal)": total_nutrition["熱量"],
-        "蛋白質 (g)": total_nutrition["蛋白質"],
-        "脂肪 (g)": total_nutrition["脂肪"],
-        "碳水化合物 (g)": total_nutrition["碳水化合物"],
+    return {
+        "蛋白質": round(protein_ratio, 1),
+        "脂肪": round(fat_ratio, 1),
+        "碳水化合物": round(carb_ratio, 1),
+        "valid": 15 <= protein_ratio <= 25 and 20 <= fat_ratio <= 30 and 50 <= carb_ratio <= 60
     }
-    rows.append(total_row)
-    return pd.DataFrame(rows)
 
-# 主程式
+# 畫出每日營養比例的圖表
+def plot_nutrition_ratio(validation):
+    labels = ["蛋白質", "脂肪", "碳水化合物"]
+    values = [validation["蛋白質"], validation["脂肪"], validation["碳水化合物"]]
+    plt.bar(labels, values)
+    plt.axhline(y=15, color='red', linestyle='--', label='蛋白質最低')
+    plt.axhline(y=25, color='red', linestyle='--', label='蛋白質最高')
+    plt.axhline(y=20, color='blue', linestyle='--', label='脂肪最低')
+    plt.axhline(y=30, color='blue', linestyle='--', label='脂肪最高')
+    plt.axhline(y=50, color='green', linestyle='--', label='碳水最低')
+    plt.axhline(y=60, color='green', linestyle='--', label='碳水最高')
+    plt.ylabel("比例 (%)")
+    plt.title("每日營養成分比例")
+    plt.legend()
+    st.pyplot(plt)
+
+# 生成每日菜單
+def calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes):
+    total_people = sum(group_counts.values())
+    total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
+    category_ratios = {"主食": 0.3, "主菜": 0.4, "副菜": 0.2, "湯品": 0.1}
+    category_calories = {category: total_calories_needed * ratio for category, ratio in category_ratios.items()}
+
+    categorized_recipes = {category: [] for category in category_ratios.keys()}
+    for recipe in recipes:
+        if recipe["type"] in categorized_recipes and recipe not in used_recipes:
+            categorized_recipes[recipe["type"]].append(recipe)
+
+    menu_summary = []
+    for category, ratio in category_ratios.items():
+        available_recipes = categorized_recipes.get(category, [])
+        if not available_recipes:
+            continue
+
+        selected_recipe = random.choice(available_recipes)
+        recipe_nutrition = calculate_recipe_nutrition(selected_recipe["ingredients"], nutrition_data)
+        if recipe_nutrition["熱量"] == 0:
+            continue
+
+        portions = round(category_calories[category] / recipe_nutrition["熱量"], 1)
+        portions = min(portions, total_people)
+        total_ingredients = {ing: round(weight * portions, 1) for ing, weight in selected_recipe["ingredients"].items()}
+        total_nutrition = {key: round(value * portions, 1) for key, value in recipe_nutrition.items()}
+
+        menu_summary.append({
+            "name": selected_recipe["name"],
+            "type": selected_recipe["type"],
+            "calories": total_nutrition["熱量"],
+            "nutrition": total_nutrition,
+            "portions": portions,
+            "ingredients": total_ingredients
+        })
+
+        used_recipes.append(selected_recipe)
+
+    return menu_summary
+
+# 主應用
 def main():
-    st.title("週菜單生成器")
-
-    # 加載食材營養數據
+    st.title("週菜單生成器 - 營養比例檢查")
+    recipes = load_recipes()
     nutrition_data = load_nutrition_data()
 
-    # 加載菜品數據並計算營養
-    recipes = load_recipes(nutrition_data)
+    st.sidebar.header("輸入用餐人數")
+    group_counts = {
+        "幼兒_男": st.sidebar.number_input("幼兒（男）人數", min_value=0, value=2),
+        "幼兒_女": st.sidebar.number_input("幼兒（女）人數", min_value=0, value=3),
+        "國小_男": st.sidebar.number_input("國小（男）人數", min_value=0, value=4),
+        "國小_女": st.sidebar.number_input("國小（女）人數", min_value=0, value=5),
+        "成人_男": st.sidebar.number_input("成人（男）人數", min_value=0, value=3),
+        "成人_女": st.sidebar.number_input("成人（女）人數", min_value=0, value=4),
+    }
 
-    # 點擊按鈕生成菜單
+    calories_per_day = {
+        "幼兒_男": 1400, "幼兒_女": 1300,
+        "國小_男": 1800, "國小_女": 1600,
+        "成人_男": 2500, "成人_女": 2000
+    }
+    lunch_ratio = 0.4
+    lunch_calories = {group: int(cal * lunch_ratio) for group, cal in calories_per_day.items()}
+
     if st.button("生成 5 天菜單"):
-        weekly_menu = {}
+        used_recipes = []
         for day in range(1, 6):
-            menu = random.sample(recipes, 4)  # 隨機選擇 4 道菜
-            total_nutrition = calculate_total_nutrition(menu)
-            compliance = check_nutrition_compliance(total_nutrition)
-            weekly_menu[f"Day {day}"] = (menu, total_nutrition, compliance)
-
-        for day, (menu, total_nutrition, compliance) in weekly_menu.items():
-            st.subheader(f"{day} 的菜單")
-            nutrition_table = build_nutrition_table(menu, total_nutrition)
-            st.dataframe(nutrition_table)
-
-            # 顯示營養是否符合需求
-            st.write("營養需求對比：")
-            for nutrient, is_compliant in compliance.items():
-                if is_compliant:
-                    st.success(f"{nutrient} 符合範圍")
-                else:
-                    range_values = LUNCH_NUTRITION_REQUIREMENTS[nutrient]
-                    st.error(f"{nutrient} 未達標！需求範圍：{range_values['min']}-{range_values['max']}")
+            st.subheader(f"第 {day} 天的菜單")
+            daily_menu = calculate_menu_for_day(recipes, group_counts, lunch_calories, nutrition_data, day, used_recipes)
+            total_calories_needed = sum(count * lunch_calories[group] for group, count in group_counts.items())
+            validation = validate_nutrition_ratio(daily_menu, total_calories_needed)
+            if not validation["valid"]:
+                st.error(f"第 {day} 天的營養比例不符合要求，請調整菜品！")
+            else:
+                st.success(f"第 {day} 天的營養比例符合要求！")
+            plot_nutrition_ratio(validation)
 
 if __name__ == "__main__":
     main()

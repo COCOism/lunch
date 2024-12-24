@@ -139,17 +139,13 @@ def build_nutrition_table_with_ingredients(menu):
 
 # 主應用
 def main():
-    st.title("固定人數週菜單生成器")
+    st.title("週菜單生成器")
 
     recipes = load_recipes()
     nutrition_data = load_nutrition_data()
 
-    fixed_group_counts = {
-        "幼兒": 6,
-        "國小": 48,
-        "成年男性": 22,
-        "成年女性": 0
-    }
+    # 添加模式選擇
+    mode = st.sidebar.selectbox("選擇模式", ["固定人數", "動態輸入人數"])
 
     calorie_ranges = {
         "幼兒": (400, 560),
@@ -158,10 +154,26 @@ def main():
         "成年女性": (720, 960)
     }
 
-    total_min_calories, total_max_calories = calculate_fixed_calories(fixed_group_counts, calorie_ranges)
-    st.sidebar.write(f"每日固定熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
-
-    total_calories = (total_min_calories + total_max_calories) // 2  # 平均熱量需求
+    if mode == "固定人數":
+        fixed_group_counts = {
+            "幼兒": 6,
+            "國小": 48,
+            "成年男性": 22,
+            "成年女性": 0
+        }
+        total_min_calories, total_max_calories = calculate_fixed_calories(fixed_group_counts, calorie_ranges)
+        st.sidebar.write(f"每日固定熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
+        total_calories = (total_min_calories + total_max_calories) // 2
+    else:
+        group_counts = {
+            "幼兒": st.sidebar.number_input("幼兒人數", min_value=0, value=6),
+            "國小": st.sidebar.number_input("國小人數", min_value=0, value=48),
+            "成年男性": st.sidebar.number_input("成年男性人數", min_value=0, value=22),
+            "成年女性": st.sidebar.number_input("成年女性人數", min_value=0, value=0),
+        }
+        total_min_calories, total_max_calories = calculate_fixed_calories(group_counts, calorie_ranges)
+        st.sidebar.write(f"每日熱量需求範圍: {total_min_calories} - {total_max_calories} 大卡")
+        total_calories = (total_min_calories + total_max_calories) // 2
 
     if st.button("生成 5 天菜單"):
         weekly_menu = generate_weekly_menu_fixed(recipes, total_calories, nutrition_data)

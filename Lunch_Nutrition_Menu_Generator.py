@@ -50,6 +50,12 @@ def generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutriti
         daily_menu = calculate_menu_for_day_dynamic(recipes, total_calories, total_protein, nutrition_data, used_recipes)
         weekly_menu[f"Day {day}"] = daily_menu
 
+        # 校驗每日總蛋白質是否符合範圍
+        daily_total_protein = sum(item['nutrition']['蛋白質'] for item in daily_menu)
+        if not (total_protein * 0.9 <= daily_total_protein <= total_protein * 1.1):
+            st.warning(f"Day {day} 的總蛋白質 ({daily_total_protein} 克) 不在範圍內，正在重新生成...")
+            return generate_weekly_menu_dynamic(recipes, total_calories, total_protein, nutrition_data)
+
     return weekly_menu
 
 # 計算單天菜單（動態蛋白質和熱量）
